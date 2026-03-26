@@ -17,8 +17,6 @@
 #define _STR(N) #N // 转字符串
 #define STR(N) _STR(N) //宏展开遇到#或者##会停止展开
 
-static char AdminPassward[Max_AdminPassward_side] = "admin";
-
 typedef struct Card
 {
 	char cardId[cardId_side];
@@ -35,6 +33,18 @@ typedef struct CardList
 	struct Card data;
 }Node,*List;
 
+struct BalanceCard
+{
+	struct BalanceCard* next;
+	char cardUserName[];
+};
+
+struct DestoryCard
+{
+	struct DestoryCard* next;
+	char cardUserName[];
+};
+
 //void Scan(FILE* pf);// 读取文件
 void WelcomeMenu(void);
 void UserMenu(int process);
@@ -46,7 +56,8 @@ List FindName(char* findcardName, List cardList);
 int Add(List tail, List cardList);//添加饭卡信息 返回值：0，正常添加；1，因账号已存在而退出。
 int DestoryId(char* cardName, List cardList);// 删除某饭卡信息。0，删除成功；1，因不存在而删除失败。
 int DestoryName(char* cardName,List cardList);
-int Balance(char* cardName, List cardList);
+double Balance(char* cardName, List cardList);
+struct DestroyCard* FindStoryCard(char* findcardname, struct DestotyCard* DestoryCardList);
 //void Print(FILE* pf);// 存储文件后关闭
 
 
@@ -54,6 +65,8 @@ int Balance(char* cardName, List cardList);
 
 int main(void)
 {
+	char AdminPassward[Max_AdminPassward_side] = "admin";
+
 	srand((unsigned int)time(NULL));
 	//FILE* pf = fopen("card.dat", "ab+");
 
@@ -64,10 +77,21 @@ int main(void)
 	HEAD->data.add_balance = 0;
 	HEAD->data.status = 0;
 	strcpy(HEAD->data.cardId,"0000000");
-	strcpy(HEAD->data.cardUserName, "头节点");
 
 	List cardList = HEAD;
 	List tail = HEAD;
+
+	struct BalanceCard* BalanceHEAD = (struct BalanceCard*)malloc(sizeof(struct BalanceCard));
+	BalanceHEAD->next = NULL;
+
+	struct BalanceCard* BalanceCardList = BalanceHEAD;
+	struct BalanceCard* tailBalanceCard = BalanceHEAD;
+
+	struct DestoryCard* DestoryHEAD = (struct DestoryCard*)malloc(sizeof(struct DestoryCard));
+	DestoryHEAD->next = NULL;
+
+	struct DestoryCard* DestoryCardList = DestoryHEAD;
+	struct DestoryCard* tailDestoryCard = DestoryHEAD;
 
 	//Scan(pf);
 	printf("-------------------------------\n");
@@ -77,23 +101,111 @@ int main(void)
 	do
 	{
 		WelcomeMenu();
-		scanf("%1s", opt);
+		scanf("%1s", opt[0]);
 		switch (opt[0])
 		{
 		case '1':
 			UserMenu(0);
-			char cardId[cardId_side];
-			scanf("%s", cardId);
-			List uesr = FindId(cardId, cardList);
-			if(! uesr)
+			char cardName[Max_cardUserName_side];
+			scanf("%s", cardName);
+			List user = FindName(cardName, cardList);
+			if(! user)
 			{
-				printf("该账号不存在，请联系管理员\n");
+				printf("该用户不存在，请联系管理员\n");
 			}
 			else 
 			{
+				if (user->data.status = '1')
+				{
+					printf("该卡已冻结，请联系管理员");
+					opt[0] = '0';
+					break;
+				}
 				UserMenu(1);
+				scanf("%1s", &opt[0]);
+				switch (opt[0])
+				{
+				case '1':
+					printf("您的余额>%.2lf\n", Balance(cardName, cardList));
+					break;
+				case '2':
+					printf("请输入您的充值金额\n");
+					printf("精确到小数点后两位\n");
+					double add_balance;
+					do {
+						scanf("%.2lf", add_balance);
+						if (add_balance <= 0)
+						{
+							printf("必须为非负数,请重新输入\n");
+						}
+					} while (add_balance < 0);
+					if (add_balance > 0)
+					{
+						user->data.add_balance = add_balance;
+						struct BalanceCard* item = (struct BalanceCard*)malloc(sizeof(struct BalanceCard) + srtlen(user->data.cardUserName));
+						strcpy(item->cardUserName, user->data.cardUserName);
+						item->next = NULL;
+						tailBalanceCard->next = item;
+					}
+					break;
+				case '3':
+					printf("请输入您的消费金额\n");
+					printf("精确到小数点后两位\n");
+					double consume;
+					do {
+						scanf("%.2lf", consume);
+						if (consume <= 0)
+						{
+							printf("必须为非负数,请重新输入\n");
+						}
+					} while ((consume <= 0));
+					if (user->data.balance - consume < 0)
+					{
+						printf("余额不足，消费失败\n");
+					}
+					else
+					{
+						printf("消费成功\n");
+						user->data.balance -= consume;
+					}
+					break;
+				case '4':
+					printf("您确定要注销吗\n确定请按 1\n");
+					printf("如需退出请按 0");
+					scanf("%1s", &opt[0]);
+					if (opt[0] = '1')
+					{
+						if (user->data.balance != 0)
+						{
+							printf("申请注销失败，您的余额不为0\n");
+						}
+						else if (user->data.add_balance != 0)
+						{
+							printf("申请注销失败，您还有充值未到账\n");
+						}
+						else if (FindDestoryCardName(user->data.cardUserName, DestoryCardList))
+						{
+							printf("请勿重复提交注销请求，谢谢\n");
+						}
+						else
+						{
+							struct DestoryCard* item = (struct DestoryCard*)malloc(sizeof(struct DestoryCard) + srtlen(user->data.cardUserName));
+							strcpy(item->cardUserName, user->data.cardUserName);
+							item->next = NULL;
+							tailDestoryCard->next = item;
+						}
+					}
+					break;
+				default:
+					if (opt[0] != '0')
+					{
+						printf("选择不合法，请重新输入。\n");
+					}
+					break;
+				}
 			}
 			break;
+
 		case '2':
 			AdminMenu(0);
 			char adminPassward[Max_AdminPassward_side];
@@ -102,7 +214,7 @@ int main(void)
 				scanf("%s", adminPassward);
 				if (!strcmp(adminPassward, "0"))
 				{
-					printf("正在退出。\n");
+					opt[0] = '0';
 					break;
 				}
 				if (strcmp(adminPassward, AdminPassward))
@@ -112,22 +224,40 @@ int main(void)
 				else
 				{
 					AdminMenu(1);
+					scanf("%1s", &opt[0]);
+					switch (opt[0])
+					{
+					case '1':
+					case '2':
+					case '3':
+					case '4':
+					case '5':
+					default:
+						if (opt[0] != '0')
+						{
+							printf("选择不合法，请重新输入。\n");
+						}
+						break;
+					}
 				}
 			}
 			break;
+
 		default:
-			if (opt[0] = '0')
+			if (opt[0] != '0')
 			{
-				printf("感谢使用本软件~\n");
-				//print(pf);
+				printf("选择不合法，请重新输入。\n");
 			}
-			else printf("选择不合法，请重新输入。\n");
 			break;
 		}
 		printf("\n");
 		if (opt[0] = '0')
+		{
+			printf("感谢使用本软件~\n");
 			break;
-	} while (opt);
+		}
+	} while (opt[0] != '0');
+	// Print(pf);
 	return 0;
 }
 
@@ -165,7 +295,8 @@ void UserMenu(int process)
 		printf("-------------------------------\n");
 		printf("\t1 查询余额\n");
 		printf("\t2 充值\n");
-		printf("\t3 注销饭卡\n");
+		printf("\t3 使用饭卡\n");
+		printf("\t4 注销饭卡\n");
 		printf("\t0 退出\n");
 		printf("-------------------------------\n");
 		break;
@@ -191,6 +322,8 @@ void AdminMenu(int process)
 		printf("\t1 处理充值请求\n");
 		printf("\t2 处理注销请求\n");
 		printf("\t3 查看所有饭卡信息\n");
+		printf("\t4 添加饭卡\n");
+		printf("\t5 解冻与冻结\n");
 		printf("\t0 退出\n");
 		printf("-------------------------------\n");
 		break;
@@ -245,13 +378,13 @@ List FindId(char* findcardId, List cardList)
 	return NULL;
 }
 
-List FindName(char* findcardId, List cardList)
+List FindName(char* findcardname, List cardList)
 {
 	List current = cardList->next;
 
 	while (current)
 	{
-		if (!strcmp(findcardId, current->data.cardId))
+		if (!strcmp(findcardname, current->data.cardUserName))
 		{
 			current = current->next;
 		}
@@ -261,7 +394,7 @@ List FindName(char* findcardId, List cardList)
 	return NULL;
 }
 
-int Balance(char* cardName, List cardList)
+double Balance(char* cardName, List cardList)
 {
 	List item = FindName(cardName,cardList);
 	return item->data.balance;
@@ -338,6 +471,22 @@ int DestoryName(char* cardName, List cardList)
 	item1->next = item0->next;
 	item2->last = item0->last;
 	free(item0);
+}
+
+struct DestroyCard* FindStoryCard(char* findcardname, struct DestoryCard* DestoryCardList)
+{
+	struct DestoryCard* current = DestoryCardList->next;
+
+	while (current)
+	{
+		if (!strcmp(findcardname, current->cardUserName))
+		{
+			current = current->next;
+		}
+		else
+			return current;
+	}
+	return NULL;
 }
 
 //void Print(FILE* pf)
