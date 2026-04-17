@@ -23,6 +23,7 @@ typedef struct Card
 	char cardId[cardId_side];
 	double balance;// 余额
 	double add_balance;// 待加入的余额
+	int namelength;
 	char status;// 用户状态：'0'正常；'1'冻结。
 	char cardUserName[];// 柔性数组适应用户id长度
 }User;
@@ -37,39 +38,49 @@ typedef struct CardList
 struct BalanceCard
 {
 	struct BalanceCard* next;
-	char cardUserName[];
+	char cardUserId[cardId_side];
 };
 
 struct DestoryCard
 {
 	struct DestoryCard* next;
-	char cardUserName[];
+	char cardUserId[cardId_side];
 };
 
-void Scan(FILE* pf);// 读取文件
 void WelcomeMenu(void);
 void UserMenu(int process);
 void AdminMenu(int process);
 List FindId(char* findcardId, List cardList);// 查找userId是否存在：NULL，不存在；返回地址值，存在。
 List FindName(char* findcardName, List cardList);
-int Add(List* tail, List cardList);//添加饭卡信息 返回值：0，正常添加；1，因账号已存在而退出。
+int Add(List* tail, List cardList,unsigned int* length);//添加饭卡信息 返回值：0，正常添加；1，因账号已存在而退出。
 int DestoryName(char* cardName,List cardList);// 删除某饭卡信息。0，删除成功；1，因不存在而删除失败。
 double Balance(char* cardName, List cardList);
 struct DestoryCard* FindDestoryCardName(char* findcardname, struct DestoryCard* DestoryCardList);
 void ChargBalanceCard(struct BalanceCard** BalanceCardList, List cardList);
-void HandleDestory(struct DestoryCard** DesHead, List cardList);
+void HandleDestory(struct DestoryCard** DesHead, List cardList, unsigned int* length);
 void View(List cardList);
-void Print(FILE* pf);// 存储文件后关闭
 
 
 
 
 int main(void)
 {
+	printf("温馨提示：如果没有正常关闭，更改的信息是不会保存的哟~\n");
 	char AdminPassward[Max_AdminPassward_side] = "admin";
-
+	int flag = 1;//判断源文件是否存在
 	srand((unsigned int)time(NULL));
 	FILE* pf = fopen("card.dat", "ab+");
+	if (pf == NULL)
+	{
+		pf = fopen("card.dat", "wb+");
+		flag = 0;
+	}
+	if (pf == NULL)
+	{
+		printf("创建失败，程序退出\n");
+		return 1;
+	}
+	unsigned int ListCardLength = 0, BalanceCardLength = 0, DestoryCardLength = 0, adminLength = 0;
 
 	Node* HEAD = (Node*)malloc(sizeof(Node));//头节点便于操作
 	HEAD->next = NULL;
@@ -77,6 +88,7 @@ int main(void)
 	HEAD->data.balance = 0;
 	HEAD->data.add_balance = 0;
 	HEAD->data.status = 0;
+	HEAD->data.namelength = 0;
 	strcpy(HEAD->data.cardId,"0000000");
 
 	List cardList = HEAD;
@@ -94,7 +106,57 @@ int main(void)
 	struct DestoryCard* DestoryCardList = DestoryHEAD;
 	struct DestoryCard* tailDestoryCard = DestoryHEAD;
 
-	//Scan(pf);
+	if (flag)
+	{
+		fread(&adminLength, sizeof(unsigned int), 1, pf);
+		fread(AdminPassward, sizeof(char) * (adminLength + 1), 1, pf);
+		fread(&ListCardLength, sizeof(unsigned int), 1, pf);
+		fread(&BalanceCardLength, sizeof(unsigned int), 1, pf);
+		fread(&DestoryCardLength, sizeof(unsigned int), 1, pf);
+
+		unsigned int item = ListCardLength;
+		while (1)
+		{
+			fread(tail, sizeof(*tail), 1, pf);
+			List a = realloc(tail, sizeof(Node) + (sizeof(char) * tail->data.namelength));
+			if (a != NULL)
+				tail = a;
+			fread(tail->data.cardUserName, sizeof(char) * (tail->data.namelength + 1), 1, pf);
+			if (item)
+			{
+				item--;
+				tail = tail->next;
+				tail = (Node*)malloc(sizeof(Node));
+			}
+			else
+				break;
+		}
+		item = BalanceCardLength;
+		while (1)
+		{
+			fread(tailBalanceCard, sizeof(*tailBalanceCard), 1, pf);
+			tailBalanceCard = tailBalanceCard->next;
+			if (item)
+			{
+				tailBalanceCard = (struct BalanceCard*)malloc(sizeof(struct BalanceCard));
+			}
+			else break;
+		}
+		item = DestoryCardLength;
+		while (1)
+		{
+			fread(tailDestoryCard, sizeof(*tailDestoryCard), 1, pf);
+			tailDestoryCard = tailDestoryCard->next;
+			if (item)
+			{
+				tailDestoryCard = (struct DestoryCard*)malloc(sizeof(struct DestoryCard));
+			}
+			else break;
+		}
+
+		fclose(pf);
+	}
+	
 	printf("-------------------------------\n");
 	printf("\t欢迎使用本系统~\n");
 	printf("\t请先登录\n");
@@ -114,17 +176,19 @@ int main(void)
 			if (cardName[0] == '0') { opt[0] = '0'; break; }
 
 			List user = FindName(cardName, cardList);
-			if (!user)
+			if (user == NULL)
 			{
 				printf("该用户不存在，请联系管理员\n");
 				break;
 			}
-			if (user->data.status == '1')
+			else
 			{
-				printf("该卡已冻结，请联系管理员\n");
-				break;
+				if (user->data.status == '1')
+				{
+					printf("该卡已冻结，请联系管理员\n");
+					break;
+				}
 			}
-
 			// 用户功能菜单
 			while (1) {
 			UserMenu(1);
@@ -145,12 +209,11 @@ int main(void)
 						while (getchar() != '\n');
 					}
 					user->data.add_balance += add_balance;
-					// 修复：柔性数组分配+1存储结束符
-					struct BalanceCard* item = (struct BalanceCard*)malloc(
-						sizeof(struct BalanceCard) + strlen(user->data.cardUserName) + 1);
-					strcpy(item->cardUserName, user->data.cardUserName);
+					struct BalanceCard* item = (struct BalanceCard*)malloc(sizeof(struct BalanceCard));
+					strcpy(item->cardUserId, user->data.cardId);
 					item->next = BalanceHEAD->next;
 					BalanceHEAD->next = item;
+					BalanceCardLength++;
 					printf("充值申请提交成功！等待管理员处理\n");
 					break;
 				}
@@ -194,11 +257,11 @@ int main(void)
 						}
 						else
 						{
-							struct DestoryCard* item = (struct DestoryCard*)malloc(
-								sizeof(struct DestoryCard) + strlen(user->data.cardUserName) + 1);
-							strcpy(item->cardUserName, user->data.cardUserName);
+							struct DestoryCard* item = (struct DestoryCard*)malloc(sizeof(struct DestoryCard));
+							strcpy(item->cardUserId, user->data.cardId);
 							item->next = DestoryHEAD->next;
 							DestoryHEAD->next = item;
+							DestoryCardLength++;
 							printf("注销申请提交成功！\n");
 						}
 					}
@@ -209,6 +272,8 @@ int main(void)
 					break;
 				default:
 					printf("选择不合法！\n");
+					char a;
+					while (a=getchar() != '\n');
 					break;
 				}
 				if (opt[0] == '0')
@@ -243,15 +308,17 @@ int main(void)
 				{
 				case '1':
 					ChargBalanceCard(&BalanceHEAD, cardList);
+					BalanceCardLength=0;
 					break;
 				case '2':
-					HandleDestory(&DestoryHEAD, cardList);
+					HandleDestory(&DestoryHEAD, cardList,&ListCardLength);
+					DestoryCardLength=0;
 					break;
 				case '3':
 					View(cardList);
 					break;
 				case '4':
-					Add(&tail, cardList); // 
+					Add(&tail, cardList,&ListCardLength); // 
 					break;
 
 				case '5':
@@ -313,15 +380,37 @@ int main(void)
 					}
 					default:
 						printf("选择不合法，请重新输入\n");
+						char a;
+						while (a = getchar() != '\n');
 						break;
 					}
 					break;
 
+				case '6':
+					printf("请输入新密码\n");
+					while (1)
+					{
+						scanf("%s", adminPassward);
+						int length = strlen(adminPassward);
+						if (length <= Max_AdminPassward_side && length >= Min_AdminPassward_side)
+						{
+							strcpy(AdminPassward, adminPassward);
+							adminLength = length;
+							break;
+						}
+						else 
+						{
+							printf("长度不符合，请重新输入\n");
+						}
+					}
+					break;
 				case '0':
 					printf("退出管理员登录\n");
 					break;
 				default:
 					printf("选择不合法！\n");
+					char a;
+					while (a = getchar() != '\n');
 					break;
 				}
 				if (opt[0] == '0')
@@ -338,6 +427,8 @@ int main(void)
 
 		default:
 			printf("选择不合法，请重新输入\n");
+			char a;
+			while (a = getchar() != '\n');
 			break;
 		}
 
@@ -349,17 +440,46 @@ int main(void)
 		}
 	}
 
-free(HEAD);
-free(BalanceHEAD);
-free(DestoryHEAD);
+	pf = fopen("card.dat", "wb+");
+
+	rewind(pf);
+	fwrite(&adminLength, sizeof(unsigned int), 1, pf);
+	fwrite(AdminPassward, sizeof(char)* (adminLength + 1), 1, pf);
+	fwrite(&ListCardLength, sizeof(unsigned int), 1, pf);
+	fwrite(&BalanceCardLength, sizeof(unsigned int), 1, pf);
+	fwrite(&DestoryCardLength, sizeof(unsigned int), 1, pf);
+
+	HEAD = HEAD->next;
+	while (HEAD != NULL)
+	{
+		fwrite(HEAD, sizeof(Node), 1, pf);
+		fwrite(HEAD->data.cardUserName, sizeof(char) * (HEAD->data.namelength), 1, pf);
+		if (HEAD != NULL)
+		{
+			Node* item = HEAD->next;
+			free(HEAD);
+			HEAD = item;
+		}
+	}
+	BalanceHEAD = BalanceHEAD->next;
+	while (BalanceHEAD != NULL)
+	{
+		fwrite(BalanceHEAD, sizeof(*BalanceHEAD), 1, pf);
+		free(BalanceHEAD);
+		BalanceHEAD = BalanceHEAD->next;
+	}
+	DestoryHEAD = DestoryHEAD->next;
+	while (DestoryHEAD != NULL)
+	{
+		fwrite(DestoryHEAD, sizeof(*DestoryHEAD), 1, pf);
+		free(DestoryHEAD);
+		DestoryHEAD = DestoryHEAD->next;
+	}
+
+	fclose(pf);
 return 0;
 }
 
-void Scan(FILE* pf)
-{
-	
-
-}
 
 void WelcomeMenu(void)
 {
@@ -418,6 +538,7 @@ void AdminMenu(int process)
 		printf("\t3 查看所有饭卡信息\n");
 		printf("\t4 添加饭卡\n");
 		printf("\t5 解冻与冻结\n");
+		printf("\t6 更改密码\n");
 		printf("\t0 退出\n");
 		printf("-------------------------------\n");
 		break;
@@ -462,16 +583,17 @@ double Balance(char* cardName, List cardList)
 	return item->data.balance;
 }
 
-int Add(List* tail,List cardList)
+int Add(List* tail,List cardList, unsigned int *length)
 {
 	char name[2 * Max_cardUserName_side];
 	printf("请输入姓名（最长为7）。一经建立无法修改。\n");
+	int namelength;
 	while (1)
 	{
 		scanf("%49s", name);
 		char ch;
-		while (ch = getchar() != '\n');//清空缓冲区
-		if (strlen(name) < Max_cardUserName_side + 1)
+		while ((ch = getchar() )!= '\n');//清空缓冲区
+		if ((namelength = strlen(name) )< (Max_cardUserName_side + 1))
 			break;
 		else
 		{
@@ -488,6 +610,7 @@ int Add(List* tail,List cardList)
 	user->data.balance = 0.0;
 	user->data.add_balance = 0.0;
 	user->data.status = 0;
+	user->data.namelength = namelength;
 		char strId[cardId_side];
 	do {
 		int intId = rand() % (int)(cardId_Max - cardId_Min) + cardId_Min;
@@ -495,6 +618,7 @@ int Add(List* tail,List cardList)
 	} while (FindId(strId,cardList));
 	strcpy(user->data.cardId, strId);
 	
+	(*length)++;
 	user->last = *tail;
 	(*tail)->next = user;
 	(*tail) = user;
@@ -520,7 +644,7 @@ struct DestoryCard* FindDestoryCardName(char* findcardname, struct DestoryCard* 
 
 	while (current)
 	{
-		if (!strcmp(findcardname, current->cardUserName))
+		if (strcmp(findcardname, current->cardUserId))
 		{
 			current = current->next;
 		}
@@ -544,7 +668,7 @@ void ChargBalanceCard(struct BalanceCard** BalanceCardList, List cardList)
 		while (p)
 		{
 			temp = p->next;
-			List user = FindName(p->cardUserName, cardList);
+			List user = FindId(p->cardUserId, cardList);
 			if (user)
 			{
 				user->data.balance += user->data.add_balance;
@@ -559,7 +683,7 @@ void ChargBalanceCard(struct BalanceCard** BalanceCardList, List cardList)
 	}
 }
 
-void HandleDestory(struct DestoryCard** DesHead, List cardList)
+void HandleDestory(struct DestoryCard** DesHead, List cardList, unsigned int* length)
 {
 	struct DestoryCard* p = (*DesHead)->next;
 	struct DestoryCard* temp = NULL;
@@ -572,10 +696,11 @@ void HandleDestory(struct DestoryCard** DesHead, List cardList)
 	while (p)
 	{
 		temp = p->next;
-		List user = FindName(p->cardUserName, cardList);
+		List user = FindId(p->cardUserId, cardList);
 		if (user)
 		{
 			DestoryName(user->data.cardUserName,cardList);
+			(*length)--;
 			printf("用户【%s】注销成功！\n", user->data.cardUserName);
 		}
 		free(p);
@@ -601,10 +726,4 @@ void View(List cardList)
 			break;
 		user = user->next;
 	}
-}
-
-void Print(FILE* pf)
-{
-	
-	fclose(pf);
 }
