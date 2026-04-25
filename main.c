@@ -689,28 +689,33 @@ int Add(List tail,List cardList, unsigned int *length)
 int DestoryName(char* cardName, List cardList)
 {
 	List item0 = FindName(cardName, cardList);
-	List item1 = item0;
-	List item2 = item1;
-	item1 = item0->last;
-	item2 = item0->next;
-	item1->next = item0->next;
-	item2->last = item0->last;
+	if (item0 == NULL)
+		return 1;
+	List Last = item0->last;
+	List Next = item0->next;
+
+	Last->next = Next;
+	if(Next != NULL)
+		Next->last = Last;
+
 	free(item0);
 	return 0;
 }
 
 struct DestoryCard* FindDestoryCardName(char* findcardname, struct DestoryCard* DestoryCardList)
 {
+	if (DestoryCardList == NULL)
+		return NULL;
+
 	struct DestoryCard* current = DestoryCardList->next;
 
 	while (current)
 	{
-		if (strcmp(findcardname, current->cardUserId))
+		if (strcmp(findcardname, current->cardUserId) == 0)
 		{
-			current = current->next;
-		}
-		else
 			return current;
+		}
+		current = current->next;
 	}
 	return NULL;
 }
