@@ -98,7 +98,7 @@ int main(void)
 	HEAD->data.namelength = 0;
 	strcpy(HEAD->data.cardId,"0000000");
 
-	List cardList = HEAD;
+	const List cardList = HEAD;
 	List tail = cardList;
 
 	struct BalanceCard* BalanceHEAD = (struct BalanceCard*)malloc(sizeof(struct BalanceCard));
@@ -117,51 +117,54 @@ int main(void)
 	{
 		fread(&adminLength, sizeof(unsigned int), 1, pf);
 		fread(AdminPassward, sizeof(char) * (adminLength + 1), 1, pf);
+		
 		fread(&ListCardLength, sizeof(unsigned int), 1, pf);
 		fread(&BalanceCardLength, sizeof(unsigned int), 1, pf);
 		fread(&DestoryCardLength, sizeof(unsigned int), 1, pf);
+		
 		fread(&HEAD->next, sizeof(HEAD->next), 1, pf);
 		fread(&BalanceHEAD->next, sizeof(BalanceHEAD->next), 1, pf);
 		fread(&DestoryHEAD->next, sizeof(DestoryHEAD->next), 1, pf);
 
 		unsigned int item = ListCardLength;
-		while (1)
+		for (unsigned int i = 0; i < ListCardLength; i++)
 		{
-			fread(tail, sizeof(*tail), 1, pf);
-			List a = realloc(tail, sizeof(Node) + (sizeof(char) * tail->data.namelength));
-			if (a != NULL)
-				tail = a;
-			fread(tail->data.cardUserName, sizeof(char) * (tail->data.namelength + 1), 1, pf);
-			if (item)
-			{
-				item--;
-				tail = tail->next;
-				tail = (Node*)malloc(sizeof(Node));
-			}
-			else
-				break;
+			// 先读基础节点
+			List node = (List)malloc(sizeof(Node));
+			fread(node, sizeof(Node), 1, pf);
+
+			// 再根据 namelength 重新分配柔性数组空间
+			List newNode = (List)realloc(node, sizeof(Node) + node->data.namelength + 1);
+			if (newNode) node = newNode;
+
+			// 读取用户名
+			fread(node->data.cardUserName, sizeof(char) * (node->data.namelength + 1), 1, pf);
+
+			// 正确插入双向链表
+			node->next = NULL;
+			node->last = tail;
+			tail->next = node;
+			tail = node;
 		}
-		item = BalanceCardLength;
-		while (1)
+		for (unsigned int i = 0; i < BalanceCardLength; i++)
 		{
-			fread(tailBalanceCard, sizeof(*tailBalanceCard), 1, pf);
-			tailBalanceCard = tailBalanceCard->next;
-			if (item)
-			{
-				tailBalanceCard = (struct BalanceCard*)malloc(sizeof(struct BalanceCard));
-			}
-			else break;
+			struct BalanceCard* node = (struct BalanceCard*)malloc(sizeof(struct BalanceCard));
+			fread(node, sizeof(*node), 1, pf);
+			node->next = NULL;
+
+			tailBalanceCard->next = node;
+			tailBalanceCard = node;
 		}
-		item = DestoryCardLength;
-		while (1)
+
+		// 读取注销链表
+		for (unsigned int i = 0; i < DestoryCardLength; i++)
 		{
-			fread(tailDestoryCard, sizeof(*tailDestoryCard), 1, pf);
-			tailDestoryCard = tailDestoryCard->next;
-			if (item)
-			{
-				tailDestoryCard = (struct DestoryCard*)malloc(sizeof(struct DestoryCard));
-			}
-			else break;
+			struct DestoryCard* node = (struct DestoryCard*)malloc(sizeof(struct DestoryCard));
+			fread(node, sizeof(*node), 1, pf);
+			node->next = NULL;
+
+			tailDestoryCard->next = node;
+			tailDestoryCard = node;
 		}
 
 		fclose(pf);
@@ -371,7 +374,6 @@ int main(void)
 							cardList->next->last = user;
 						cardList->next = user;
 
-						user->next = NULL;
 						printf("创建成功。您的饭卡ID为>%s\n", user->data.cardId);
 					break;
 
@@ -609,7 +611,7 @@ List FindId(char* findcardId, List cardList)
 	if (cardList == NULL||cardList->next == NULL|| findcardId == NULL )
 		return NULL;
 
-	List current = cardList->next;
+	List current = cardList;
 
 	while (current)
 	{
@@ -638,7 +640,7 @@ List FindName(char* findcardname, List cardList)
 	}
 	return NULL;
 }
-
+/*
 int Add(List tail,List cardList, unsigned int *length)
 {
 	char name[2 * Max_cardUserName_side];
@@ -683,7 +685,7 @@ int Add(List tail,List cardList, unsigned int *length)
 	printf("创建成功。您的饭卡ID为>%s\n",user->data.cardId);
 	return 0;
 }
-
+*/
 int DestoryName(char* cardName, List cardList)
 {
 	List item0 = FindName(cardName, cardList);
@@ -772,14 +774,16 @@ void HandleDestory(struct DestoryCard** DesHead, List cardList, unsigned int* le
 void View(List cardList)
 {
 	List user = cardList;
-	if (user->next == NULL|| user == NULL)
+	if (user == NULL|| user->next == NULL)
 	{
 		printf("暂无饭卡信息\n");
 		return;
 	}
 	printf("姓名\t饭卡号\t\t实际金额\t未到帐金额\t状态\n");
-	while (user = user->next)
+	user = user->next;
+	while (user != NULL)
 	{
 		printf("%s\t%s\t\t%.2lf\t\t%.2lf\t\t%s\n",user->data.cardUserName,user->data.cardId,user->data.balance,user->data.add_balance,STATUS(user->data.status));
+		user = user->next;
 	}
 }
