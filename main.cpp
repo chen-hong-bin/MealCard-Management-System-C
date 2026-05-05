@@ -1,7 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <windows.h>
-#include <easyx.h>
 
 void FixGbk(void) {
 	SetConsoleOutputCP(936);
