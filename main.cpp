@@ -1,17 +1,16 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <windows.h>
-
-void FixGbk(void) {
-	SetConsoleOutputCP(936);
-	SetConsoleCP(936);
-}
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
+
+void FixGbk(void) {
+	SetConsoleOutputCP(936);
+	SetConsoleCP(936);
+}
 
 #define cardId_side 8//7位数字，一位'\0'
 #define cardId_Min (pow(10,cardId_side-2)+1) 
