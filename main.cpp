@@ -51,38 +51,27 @@ struct DestoryCard
 	char cardUserId[cardId_side];
 };
 
-void WelcomeMenu(void);
-void UserMenu(int process);
-void AdminMenu(int process);
-List FindId(char* findcardId, List cardList);// 查找userId是否存在：NULL，不存在；返回地址值，存在。
-List FindName(char* findcardName, List cardList);
-int DestoryName(char* cardName, List cardList);// 删除某饭卡信息。0，删除成功；1，因不存在而删除失败。
-struct DestoryCard* FindDestoryCardName(char* findcardname, struct DestoryCard* DestoryCardList);
-void ChargBalanceCard(struct BalanceCard* BalanceCardList, List cardList);
-void Charge(struct BalanceCard* BalanceCardList, unsigned int* length, Node* user);
-void HandleDestory(struct DestoryCard* DesHead, List cardList, unsigned int* length);
-void Pay(Node* user);
-void View(List cardList);
-int Add(List cardList, unsigned int* ListCardLength, Node* user);
-void AppDestory(Node* user, struct DestoryCard* DestoryHEAD, unsigned int* DestoryCardLength, char* opt);
-void Alter(char* AdminPassward, unsigned int* adminLength, char* adminPassward);
-void Freeze(Node* user, List cardList);
-void Thaw(Node* user, List cardList);
-
-
-
-
-
-
+void WelcomeMenu(void);// 展示欢迎页菜单。
+void UserMenu(int process);// 根据普通用户的登录状态呈现出对应菜单。
+void AdminMenu(int process);// 根据管理员的登录状态呈现出对应菜单。
+List FindId(char* findcardId, List cardList);//根据用户Id在主饭卡链表中查找饭卡信息是否存在：NULL，不存在；返回地址值，存在。
+List FindName(char* findcardName, List cardList);// 根据用户名在主饭卡链表中查找饭卡信息是否存在：NULL，不存在；返回地址值，存在。
+int DestoryName(char* cardName, List cardList);// 根据用户名在主饭卡链表中删除某饭卡信息。0，删除成功；1，因不存在而删除失败。
+struct DestoryCard* FindDestoryCardId(char* findcardid, struct DestoryCard* DestoryCardList);// 根据Id在注销链表中查找饭卡信息。NULL，不存在；返回地址值，存在。
+void ChargBalanceCard(struct BalanceCard* BalanceCardList, List cardList);// 处理充值链表，把充值链表对应用户的待到账金额加入到余额中。
+void Charge(struct BalanceCard* BalanceCardList, unsigned int* length, Node* user);// 在充值链表中加入用户Id, 并且修改用户的待到账金额。
+void HandleDestory(struct DestoryCard* DesHead, List cardList, unsigned int* length);// 处理注销链表，把注销链表对应用户在主饭卡链表中删去。
+void Pay(Node* user);// 消费支付。
+void View(List cardList);// 遍历主饭卡链表
+int Add(List cardList, unsigned int* ListCardLength, Node* user);// 添加新的饭卡信息，并接入主饭卡链表。
+void AppDestory(Node* user, struct DestoryCard* DestoryHEAD, unsigned int* DestoryCardLength, char* opt);// 申请注销函数。
+void Alter(char* AdminPassward, unsigned int* adminLength, char* adminPassward);// 更改管理员登陆密码。
+void Freeze(Node* user, List cardList);// 冻结用户饭卡。
+void Thaw(Node* user, List cardList);// 解冻用户饭卡。
 
 int main(void)
 {
 	FixGbk();
-	/*
-	initgraph(1024, 512, 1);
-	setbkcolor(WHITE);//背景白色
-	cleardevice();//清屏
-	*/
 	printf("温馨提示：如果没有正常关闭，更改的信息是不会保存的哟~\n");
 	char AdminPassward[Max_AdminPassward_side];
 	strcpy(AdminPassward, "admin");
@@ -505,6 +494,9 @@ List FindId(char* findcardId, List cardList)
 
 List FindName(char* findcardname, List cardList)
 {
+	if (cardList == NULL || cardList->next == NULL || findcardname == NULL)
+		return NULL;
+
 	List current = cardList->next;
 
 	while (current)
@@ -535,16 +527,16 @@ int DestoryName(char* cardName, List cardList)
 	return 0;
 }
 
-struct DestoryCard* FindDestoryCardName(char* findcardname, struct DestoryCard* DestoryCardList)
+struct DestoryCard* FindDestoryCardId(char* findcardid, struct DestoryCard* DestoryCardList)
 {
-	if (DestoryCardList == NULL)
+	if (DestoryCardList == NULL || DestoryCardList->next == NULL ||findcardid == NULL)
 		return NULL;
 
 	struct DestoryCard* current = DestoryCardList->next;
 
 	while (current)
 	{
-		if (strcmp(findcardname, current->cardUserId) == 0)
+		if (strcmp(findcardid, current->cardUserId) == 0)
 		{
 			return current;
 		}
@@ -678,7 +670,7 @@ void AppDestory(Node* user, struct DestoryCard* DestoryHEAD, unsigned int* Desto
 		{
 			printf("注销失败：有待充值金额\n");
 		}
-		else if (FindDestoryCardName(user->data.cardUserName, DestoryHEAD) == (DestoryCard*)user)
+		else if (FindDestoryCardId(user->data.cardUserName, DestoryHEAD) == (DestoryCard*)user)
 		{
 			printf("请勿重复提交注销申请\n");
 		}
