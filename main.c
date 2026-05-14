@@ -670,7 +670,7 @@ void AppDestory(Node* user, struct DestoryCard* DestoryHEAD, unsigned int* Desto
 		{
 			printf("注销失败：有待充值金额\n");
 		}
-		else if (FindDestoryCardId(user->data.cardUserName, DestoryHEAD) == (DestoryCard*)user)
+		else if (FindDestoryCardId(user->data.cardUserName, DestoryHEAD) == (struct DestoryCard*)user)
 		{
 			printf("请勿重复提交注销申请\n");
 		}
@@ -709,11 +709,10 @@ void Freeze(Node* user, List cardList)
 	printf("请输入需要冻结的饭卡号\n");
 	char cardName[Max_cardUserName_side] = { 0 };
 	scanf("%s", cardName);
-	user = FindName(cardName, cardList);
+	user = FindId(cardName, cardList);
 	if (user == NULL)
 	{
 		printf("该用户不存在\n");
-		return;
 	}
 	else if (user->data.status == '1')
 	{
@@ -725,13 +724,14 @@ void Freeze(Node* user, List cardList)
 		printf("冻结成功\n");
 	}
 	printf("冻结进程退出\n");
+	return;
 }
 void Thaw(Node* user, List cardList)
 {
 	printf("请输入需要解冻的饭卡号\n");
 	char cardName[Max_cardUserName_side] = { 0 };
 	scanf("%s", cardName);
-	user = FindName(cardName, cardList);
+	user = FindId(cardName, cardList);
 	if (user == NULL)
 	{
 		printf("该用户不存在\n");
@@ -746,6 +746,7 @@ void Thaw(Node* user, List cardList)
 		printf("解冻成功\n");
 	}
 	printf("解冻进程退出\n");
+	return;
 }
 int Add(List cardList, unsigned int* ListCardLength, Node* user)
 {
